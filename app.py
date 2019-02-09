@@ -11,7 +11,7 @@ class HandSim(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
-
+        # Populates CARD_DECK variable with color and symbol values.
         helpers.deck_populate()
 
         self.configure_gui()
@@ -22,8 +22,16 @@ class HandSim(tk.Frame):
         self.config(bg=settings.BACKGROUND)
 
     def create_widgets(self):
+        # Creaters header.
+        text = 'Texas Holdem Hands Simulator'
+        header = tk.Label(self, bg=settings.BACKGROUND, text=text, 
+                          fg=settings.FOREGROUND, font=settings.HEADER_FONT)
+        header.grid(row=0, columnspan=2)
+        # Creates players frames.
         player_1 = helpers.Player(self, 'Player 1')
-        player_1.pack(pady=(20,20))
+        player_1.grid(row=1, column=0, pady=(10,20), padx=(10,30))
+        player_2 = helpers.Player(self, 'Player 2')
+        player_2.grid(row=1, column=1, pady=(10,20), padx=(30,10))
 
 
 

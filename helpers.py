@@ -33,7 +33,9 @@ class Player(tk.LabelFrame):
 
     def create_widgets(self):
         card_1 = Card(self)
-        card_1.pack(pady=(10,10))
+        card_1.grid(row=1, column=0, pady=(10,10), padx=(10,15))
+        card_2 = Card(self)
+        card_2.grid(row=1, column=1, pady=(10,10), padx=(15,10))
 
 
 
@@ -103,7 +105,7 @@ class Card(tk.Frame):
     def create_radiobutton(self, img_name, val):
         '''Creates radiobutton with image as label. '''
         img = ImageTk.PhotoImage(Image.open(settings.IMG_DIR + img_name + '.png'))
-        button = tk.Radiobutton(self, image=img, bg=settings.BACKGROUND, bd=0,
+        button = tk.Radiobutton(self, image=img, bg=settings.BACKGROUND,
                                 activebackground=settings.BACKGROUND, 
                                 highlightthickness=0, variable=self.rbutton_option,
                                 value=val, command=lambda: self.switch_color(val))
