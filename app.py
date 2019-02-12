@@ -11,7 +11,8 @@ class HandSim(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
-        # Populates CARD_DECK variable with color and symbol values.
+        # Set mouse focus for all widgets.
+        self.master.bind_all('<1>', lambda event: event.widget.focus_set())
         helpers.deck_populate()
 
         self.configure_gui()
@@ -22,16 +23,37 @@ class HandSim(tk.Frame):
         self.config(bg=settings.BACKGROUND)
 
     def create_widgets(self):
+        background = settings.BACKGROUND
+        foreground = settings.FOREGROUND
         # Creaters header.
         text = 'Texas Holdem Hands Simulator'
-        header = tk.Label(self, bg=settings.BACKGROUND, text=text, 
-                          fg=settings.FOREGROUND, font=settings.HEADER_FONT)
-        header.grid(row=0, columnspan=2)
+        tk.Label(self, bg=background, text=text, fg=foreground,
+                 font=settings.HEADER_FONT).grid(row=0, columnspan=2)
+        
         # Creates players frames.
         player_1 = helpers.Player(self, 'Player 1')
         player_1.grid(row=1, column=0, pady=(10,20), padx=(10,30))
         player_2 = helpers.Player(self, 'Player 2')
         player_2.grid(row=1, column=1, pady=(10,20), padx=(30,10))
+
+        # Simulation amount input frame.
+        user_input = helpers.Sim_quantity(self)
+        user_input.grid(row=2, column=0, pady=(50,50))
+
+        # Simulation button
+        tk.Button(self, text='Simulate', bg=settings.COLOR, relief='flat',
+                  highlightbackground=background, highlightcolor=background, 
+                  fg=foreground, activebackground=foreground, font=settings.FONT,
+                  activeforeground=background, highlightthickness=2,
+                  command=lambda: self.simulate(user_input.value.get())).grid(row=2, 
+                  column=1, pady=(50,50))
+    
+    def simulate(self, sim_amount):
+        print(sim_amount)
+        
+
+
+
 
 
 

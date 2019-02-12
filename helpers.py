@@ -5,7 +5,8 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import settings  # Application settings and constant variables.
 
-
+# TODO:
+# * Check if parent variable is needed in those classes.
 
 
 class Player(tk.LabelFrame):
@@ -167,6 +168,79 @@ class Card(tk.Frame):
             settings.CARD_DECK[card[0]][card[1]] = card[1]
 
 
+class Sim_quantity(tk.Frame):
+
+    '''
+        Class which gets user simulation amount input.
+    '''
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.sim_quantity = None
+        self.value = tk.StringVar()
+        self.value.set(100)
+
+        self.config_frame()
+        self.create_widgets()
+
+    def config_frame(self):
+        self['bg'] = settings.BACKGROUND
+
+    def create_widgets(self):
+        tk.Label(self, text='Simulations amount:', bg=settings.BACKGROUND, 
+                 font=settings.FONT, fg=settings.FOREGROUND).grid(row=0, column=0, 
+                 pady=(0,0))
+        tk.Entry(self, textvariable=self.value, width=6, bg=settings.BACKGROUND,
+                 insertbackground=settings.COLOR, highlightcolor=settings.BACKGROUND,
+                 relief='flat', highlightbackground=settings.BACKGROUND,
+                 font=settings.FONT, fg=settings.FOREGROUND).grid(row=0, column=1)
+
+
+    
+
+# class Simulation(tk.Frame):
+
+#     '''
+#         Heart of the application. Here user can choose, how many games to simulate,
+#         execute simulation. The class contains also simulation algorithm.
+#     '''
+
+#     def __init__(self, parent):
+#         super().__init__(parent)
+#         self.parent = parent
+#         self.quantity = None
+#         self.input = tk.StringVar()
+        
+
+#         self.config_frame()
+#         self.create_widgets()
+
+#     def config_frame(self):
+#         self['bg'] = 'green'
+#         # self['fg'] = settings.FOREGROUND
+#         self.update_idletasks()
+#         width = self.parent.master.winfo_width()
+#         print(width)
+
+#     def create_widgets(self):
+#         # User input for simulation games quantity.
+#         input_label = tk.Label(self, text='Simulations ammount:', font=settings.FONT, 
+#                                 fg=settings.FOREGROUND)
+#         input_label.grid(row=0, column=0)
+#         input_entry = tk.Entry(self, textvariable=self.input)
+#         input_entry.grid(row=0, column=1)
+
+#         # Simulation button
+#         # sim_button = tk.Button(self, text='Simulate')
+#         # sim_button.grid(row=0, column=2)
+
+
+def deck_populate():
+    '''Populates CARD_DECK variable.'''
+    for _ in range(4):
+        settings.CARD_DECK.append(list(range(13))) 
+
 
 def card_resize(scale, path, save_path):
     '''Script helping to resize original card images.'''
@@ -182,9 +256,3 @@ def card_resize(scale, path, save_path):
         os.makedirs(os.path.dirname(save_path + name), exist_ok=True)
         img.save(save_path + name, quality=90)
         img.close()
-
-
-def deck_populate():
-    '''Populates CARD_DECK variable.'''
-    for _ in range(4):
-        settings.CARD_DECK.append(list(range(13))) 
