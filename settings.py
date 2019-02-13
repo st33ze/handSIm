@@ -1,11 +1,12 @@
 # Constant and global values
 BACKGROUND = 'gray20'
 FOREGROUND = '#d1cccc'
-COLOR = 'green'
+SUCCESS_COLOR = 'green'
+FAIL_COLOR = '#fc0000'
 
 HEADER_FONT = ('Arial', 16)
 FONT = ('Arial', 12)
-SMALL_FONT = ('Arial', 8)
+SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
 SCREEN_SIZE = 0

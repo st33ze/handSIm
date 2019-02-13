@@ -25,6 +25,7 @@ class HandSim(tk.Frame):
     def create_widgets(self):
         background = settings.BACKGROUND
         foreground = settings.FOREGROUND
+        self.show_error = None
         # Creaters header.
         text = 'Texas Holdem Hands Simulator'
         tk.Label(self, bg=background, text=text, fg=foreground,
@@ -37,24 +38,14 @@ class HandSim(tk.Frame):
         player_2.grid(row=1, column=1, pady=(10,20), padx=(30,10))
 
         # Simulation amount input frame.
-        user_input = helpers.Sim_quantity(self)
-        user_input.grid(row=2, column=0, pady=(50,50))
+        user_input = helpers.SimQuantity(self)
+        user_input.grid(row=3, column=0, pady=(25,50))
 
-        # Simulation button
-        tk.Button(self, text='Simulate', bg=settings.COLOR, relief='flat',
-                  highlightbackground=background, highlightcolor=background, 
-                  fg=foreground, activebackground=foreground, font=settings.FONT,
-                  activeforeground=background, highlightthickness=2,
-                  command=lambda: self.simulate(user_input.value.get())).grid(row=2, 
-                  column=1, pady=(50,50))
-    
-    def simulate(self, sim_amount):
-        print(sim_amount)
+        # # Simulation button
+        sim_button = helpers.Simulate(self, user_input)
+        sim_button.grid(row=3, column=1, pady=(25,50))
+ 
         
-
-
-
-
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ class Player(tk.LabelFrame):
         self['bg'] = settings.BACKGROUND
         self['fg'] = settings.FOREGROUND
         self['text'] = self.name
+        self['font'] = settings.FONT
 
 
     def create_widgets(self):
@@ -168,16 +169,14 @@ class Card(tk.Frame):
             settings.CARD_DECK[card[0]][card[1]] = card[1]
 
 
-class Sim_quantity(tk.Frame):
 
-    '''
-        Class which gets user simulation amount input.
-    '''
+class SimQuantity(tk.Frame):
+
+    '''Gets user simulation amount input.'''
 
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
-        self.sim_quantity = None
         self.value = tk.StringVar()
         self.value.set(100)
 
@@ -192,48 +191,65 @@ class Sim_quantity(tk.Frame):
                  font=settings.FONT, fg=settings.FOREGROUND).grid(row=0, column=0, 
                  pady=(0,0))
         tk.Entry(self, textvariable=self.value, width=6, bg=settings.BACKGROUND,
-                 insertbackground=settings.COLOR, highlightcolor=settings.BACKGROUND,
+                 insertbackground=settings.SUCCESS_COLOR, highlightcolor=settings.BACKGROUND,
                  relief='flat', highlightbackground=settings.BACKGROUND,
                  font=settings.FONT, fg=settings.FOREGROUND).grid(row=0, column=1)
 
 
+
+class Simulate(tk.Button):
+
+    ''' Simulation algorithm and user input validadion.'''
     
+    def __init__(self, parent, input_obj):
+        super().__init__(parent)
+        self.parent = parent
+        self.input_obj = input_obj # Reference to input object
+        self.show_error = None # Show error label.
+        self.error = None # Error message.
 
-# class Simulation(tk.Frame):
+        self.widget_config()
 
-#     '''
-#         Heart of the application. Here user can choose, how many games to simulate,
-#         execute simulation. The class contains also simulation algorithm.
-#     '''
-
-#     def __init__(self, parent):
-#         super().__init__(parent)
-#         self.parent = parent
-#         self.quantity = None
-#         self.input = tk.StringVar()
+    def widget_config(self):
+        self['text'] = 'Simulate'
+        self['relief'] = 'flat'
+        self['font'] = settings.FONT
+        self['bg'] = settings.SUCCESS_COLOR
+        self['fg'] = settings.FOREGROUND
+        self['highlightbackground'] = settings.BACKGROUND
+        self['highlightcolor'] = settings.BACKGROUND
+        self['activebackground'] = settings.FOREGROUND
+        self['activeforeground'] = settings.BACKGROUND
+        self['highlightthickness'] = 2
+        self['command'] = lambda: self.simulate()
+    
+    def simulate(self):
+        ''' Simulation algorithm.'''
+        user_input = self.input_obj.value.get()
         
+        # Delete old error label if exists.
+        if self.show_error:
+            self.show_error.grid_forget()
+        
+        sim_amount = self.validate_input(user_input)
+        # If input value is correct, simulate games.
+        if sim_amount:
+            print(sim_amount)
+        
+        # Else raise an error.
+        else:
+            self.show_error = tk.Label(self.parent, text=self.error, bg=settings.BACKGROUND,
+                                       fg=settings.FAIL_COLOR, font=settings.SMALL_FONT)
+            self.show_error.grid(row=2, columnspan=2)
 
-#         self.config_frame()
-#         self.create_widgets()
 
-#     def config_frame(self):
-#         self['bg'] = 'green'
-#         # self['fg'] = settings.FOREGROUND
-#         self.update_idletasks()
-#         width = self.parent.master.winfo_width()
-#         print(width)
-
-#     def create_widgets(self):
-#         # User input for simulation games quantity.
-#         input_label = tk.Label(self, text='Simulations ammount:', font=settings.FONT, 
-#                                 fg=settings.FOREGROUND)
-#         input_label.grid(row=0, column=0)
-#         input_entry = tk.Entry(self, textvariable=self.input)
-#         input_entry.grid(row=0, column=1)
-
-#         # Simulation button
-#         # sim_button = tk.Button(self, text='Simulate')
-#         # sim_button.grid(row=0, column=2)
+    def validate_input(self, input):
+        ''' Validates simulations amount input.'''
+        try:
+            value = int(input)
+            return value
+        except ValueError:
+            self.error = 'Invalid simulations amount value.'
 
 
 def deck_populate():
