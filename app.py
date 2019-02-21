@@ -2,7 +2,7 @@
 
 import tkinter as tk
 import settings           # Application settings and constant variables.
-import helpers            # Supporting classes for main application.
+import helpers          # Supporting classes for main application.
 from PIL import Image
 
 class HandSim(tk.Frame):
@@ -23,28 +23,31 @@ class HandSim(tk.Frame):
         self.config(bg=settings.BACKGROUND)
 
     def create_widgets(self):
-        background = settings.BACKGROUND
-        foreground = settings.FOREGROUND
-        self.show_error = None
-        # Creaters header.
+        # players = []
+        # Creates header.
         text = 'Texas Holdem Hands Simulator'
-        tk.Label(self, bg=background, text=text, fg=foreground,
-                 font=settings.HEADER_FONT).grid(row=0, columnspan=2)
+        tk.Label(self, bg=settings.BACKGROUND, text=text, fg=settings.FOREGROUND,
+                 font=settings.HEADER_FONT).grid(row=0)
         
-        # Creates players frames.
-        player_1 = helpers.Player(self, 'Player 1')
-        player_1.grid(row=1, column=0, pady=(10,20), padx=(10,30))
-        player_2 = helpers.Player(self, 'Player 2')
-        player_2.grid(row=1, column=1, pady=(10,20), padx=(30,10))
+        # # Creates players frames.
+        # player_1 = helpers.Player(self, 'Player 1')
+        # player_1.grid(row=1, column=0, pady=(10,20), padx=(10,30))
+        # player_2 = helpers.Player(self, 'Player 2')
+        # player_2.grid(row=1, column=1, pady=(10,20), padx=(30,10))
 
-        # Simulation amount input frame.
-        user_input = helpers.SimQuantity(self)
-        user_input.grid(row=3, column=0, pady=(25,50))
+        # players.append(player_1)
+        # players.append(player_2)
 
-        # # Simulation button
-        sim_button = helpers.Simulate(self, user_input)
-        sim_button.grid(row=3, column=1, pady=(25,50))
- 
+        # # Simulation amount input frame.
+        # user_input = helpers.SimQuantity(self)
+        # user_input.grid(row=3, column=0, pady=(25,50))
+
+        # # # Simulation button
+        # sim_button = helpers.Simulate(self, players, user_input)
+        # sim_button.grid(row=3, column=1, pady=(25,50))
+
+        preSim = helpers.PreSim(self)
+        preSim.grid(row=1, pady=(10,40))
         
 
 
