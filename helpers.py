@@ -4,7 +4,9 @@ import random
 import glob, os
 import tkinter as tk
 from PIL import Image, ImageTk
+from collections import Counter
 import settings  # Application settings and constant variables.
+import tests
 
 # TODO:
 # * Check if parent variable is needed in those classes.
@@ -59,9 +61,9 @@ class Player(tk.LabelFrame):
         super().__init__(parent)
         self.parent = parent
         self.name = name
-        self.cards = [] # List of card objects.
-        self.hand = [] # List of player current hand.
-        self.board = [] # List of cards in current board.
+        self.cards = [] # Card objects.
+        self.hand = [] # Player current hand.
+        self.board = [] # Cards in current board.
         
         self.config_frame()
         self.create_widgets()
@@ -87,6 +89,27 @@ class Player(tk.LabelFrame):
     
     def hand_update(self):
         self.hand = [self.cards[0].current_card, self.cards[1].current_card]
+    
+    def check_result(self):
+        ''' Checks current result, depending on current hand and board cards.'''
+        self.result = None
+        cards = self.hand + self.board
+        colors = []
+        symbols = []
+
+        for card in cards:
+            # Get colors.
+            colors.append(card[0])
+            # Get symbols.
+            symbols.append(card[1])
+        symbols.sort()
+        
+        # Color check.
+        colors = Counter(colors).most_common(1)
+        if colors[0][1] >= 5:
+            self.result = 'Color'
+            # Poker check.
+
 
 
 
@@ -270,6 +293,7 @@ class Simulate(tk.Button):
         self.input_obj = input_obj # Reference to input object.
         self.show_error = None # Show error label.
         self.error = None # Error message.
+        self.test_counter = 0 # For simulation tests.
 
         self.widget_config()
 
@@ -287,56 +311,62 @@ class Simulate(tk.Button):
         self['command'] = lambda: self.simulate()
     
     def simulate(self):
-        ''' Simulation algorithm.'''
-        user_input = self.input_obj.value.get()
-        
-        # Delete old error label if exists.
-        if self.show_error:
-            self.show_error.grid_forget()
-        
-        # If input value is correct, simulate games.
-        sim_amount = self.validate_input(user_input)
-        if sim_amount:
-            
-            # Set all the button and input widgets as disabled.
-            for player in self.players_obj:
-                for card in player.cards:
-                    for widget in card.changable_widgets:
-                        widget['state'] = 'disabled'
-            for widget in self.input_obj.changable_widgets:
-                widget['state'] = 'disabled'
-            self['state'] = 'disabled'
+        if settings.TEST_MODE:
+            self.sim_test()
 
-            # Check for blank cards.
-            cards_to_random = []
-            deck = list(range(1, 53))
-            for player_object in self.players_obj:
-                for card in player_object.cards:
-                    if any(x is not None for x in card.current_card):
-                        deck.remove(card.current_card[0] * 13 + 
-                                    (card.current_card[1] + 1))
-                    else:
-                        cards_to_random.append(card)
-            # If blank pick random cards.
-            for card in cards_to_random:
-                random_card = random.choice(deck)
-                card.current_card = [(random_card - 1) // 13, (random_card -1) % 13]
-                card.show_card(card.current_card)
-                deck.remove(random_card)
-            
-            # Update players hands.
-            for player in self.players_obj:
-                player.hand_update()
-            
-            
-            # Simulate sim_amount games.
-            self.sim_game(deck)
-                
-        # Else raise an error.
         else:
-            self.show_error = tk.Label(self.parent, text=self.error, bg=settings.BACKGROUND,
-                                       fg=settings.FAIL_COLOR, font=settings.SMALL_FONT)
-            self.show_error.grid(row=1, columnspan=2)
+            ''' Simulation algorithm.'''
+            user_input = self.input_obj.value.get()
+            
+            # Delete old error label if exists.
+            if self.show_error:
+                self.show_error.grid_forget()
+            
+            # If input value is correct, simulate games.
+            sim_amount = self.validate_input(user_input)
+            if sim_amount:
+                
+                # Set all the button and input widgets as disabled.
+                for player in self.players_obj:
+                    for card in player.cards:
+                        for widget in card.changable_widgets:
+                            widget['state'] = 'disabled'
+                for widget in self.input_obj.changable_widgets:
+                    widget['state'] = 'disabled'
+                self['state'] = 'disabled'
+
+                # Check for blank cards.
+                cards_to_random = []
+                deck = list(range(1, 53))
+                for player_object in self.players_obj:
+                    for card in player_object.cards:
+                        if any(x is not None for x in card.current_card):
+                            deck.remove(card.current_card[0] * 13 + 
+                                        (card.current_card[1] + 1))
+                        else:
+                            cards_to_random.append(card)
+                # If blank pick random cards.
+                for card in cards_to_random:
+                    random_card = random.choice(deck)
+                    card.current_card = [(random_card - 1) // 13, (random_card -1) % 13]
+                    card.show_card(card.current_card)
+                    deck.remove(random_card)
+                
+                # Update players hands.
+                for player in self.players_obj:
+                    player.hand_update()
+                
+                
+                # Simulate sim_amount games.
+                self.sim_game(deck)
+                    
+            # Else raise an error.
+            else:
+                self.show_error = tk.Label(self.parent, text=self.error, 
+                                           bg=settings.BACKGROUND,
+                                           fg=settings.FAIL_COLOR,
+                                           font=settings.SMALL_FONT)
+                self.show_error.grid(row=1, columnspan=2)
 
     def sim_game(self, deck):
         ''' Simulates one game.'''
@@ -351,12 +381,14 @@ class Simulate(tk.Button):
             board.append(card)
             free_cards.remove(number)
         
+        # Show board cards.
         Board(self.parent, board).grid(row=1, columnspan=2, pady=(0,20))
 
-        # Update board value.
+        # Update board values for each Player object.
         for player in self.players_obj:
             player.board = board
-            print(player.board)
+            player.check_result()
+
 
     def validate_input(self, input):
         ''' Validates simulations amount input.'''
@@ -368,6 +400,29 @@ class Simulate(tk.Button):
                 return value
         except ValueError:
             self.error = 'Invalid simulations amount value.'
+
+
+    def sim_test(self):
+        ''' For simulation algorithm testing. '''
+        board = tests.sim_data[self.test_counter][2]
+        Board(self.parent, board).grid(row=1, columnspan=2, pady=(0,20))
+        results = []
+        for player in self.players_obj:
+            player_index = self.players_obj.index(player)
+            player.board = board
+            for card in player.cards:
+                card_index = player.cards.index(card)
+                card.current_card = tests.sim_data[self.test_counter][player_index][card_index]
+                card.show_card(card.current_card)
+            player.hand_update()
+            player.check_result()
+            results.append('{}: {}'.format(player.name, player.result))
+        self.test_counter += 1
+
+        for result in results:
+            print(result)
+
+
 
 
 

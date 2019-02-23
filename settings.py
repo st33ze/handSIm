@@ -10,6 +10,7 @@ SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
 PLAYER_MODE = 2
+TEST_MODE = True
 IMG_DIR = ['img/default/', 'img/board size/']
 
 CARD_COLORS = ['clubs', 'diamonds', 'hearts', 'spades']
