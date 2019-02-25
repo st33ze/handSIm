@@ -102,13 +102,84 @@ class Player(tk.LabelFrame):
             colors.append(card[0])
             # Get symbols.
             symbols.append(card[1])
-        symbols.sort()
         
         # Color check.
-        colors = Counter(colors).most_common(1)
-        if colors[0][1] >= 5:
-            self.result = 'Color'
+        clr_counter = Counter(colors).most_common(1)
+        if clr_counter[0][1] >= 5:
+            self.result = 5 # settings.RESULTS[5] = Flush
+            
             # Poker check.
+            if self.is_straight(symbols):
+                self.result = 8
+                return
+       
+        # Four of a kind check.
+        smbl_counter = Counter(symbols).most_common(2)
+        if smbl_counter[0][1] == 4:
+            self.result = 7
+            return
+        
+        # Three of a kind check.
+        if smbl_counter[0][1] == 3:
+            if not self.result:
+                self.result = 3
+
+            # Full house check.
+            if smbl_counter[1][1] >= 2:
+                self.result = 6
+                return
+        
+        # Straight check.
+        if not self.result or self.result < 4:
+            if self.is_straight(symbols):
+                self.result = 4
+                return
+        
+        # Pair check.
+        if not self.result: 
+            if smbl_counter[0][1] == 2:
+                self.result = 1
+
+                # Two pair check.
+                if smbl_counter[1][1] == 2:
+                    self.result = 2
+                    return
+       
+        # Else high card.
+        if not self.result:
+            self.result = 0
+            
+
+
+    def is_straight(self, symbols):
+        ''' Check if given board contains straight. '''
+        
+        # Sort list and remove duplicates.
+        straight_check = list(set(symbols))
+        straight_check.sort()
+        last_item = len(straight_check) - 1
+
+        if len(straight_check) >= 5:
+            # If ace is in the list, check for lower straight.
+            if straight_check[last_item] == 12:
+                lower_straight = list(straight_check)
+                lower_straight[last_item] = -1
+                lower_straight.sort()
+
+                if lower_straight[4] - lower_straight[0] == 4:
+                    return True
+
+            # Check other straight options.
+            for _ in range(len(straight_check) - 4):
+                if straight_check[4 + _] - straight_check[_] == 4:
+                    return True
+
+        return False
+
+
+
+
+
 
 
 
@@ -293,7 +364,7 @@ class Simulate(tk.Button):
         self.input_obj = input_obj # Reference to input object.
         self.show_error = None # Show error label.
         self.error = None # Error message.
-        self.test_counter = 0 # For simulation tests.
+        self.test_counter = 12 # For simulation tests.
 
         self.widget_config()
 
@@ -416,11 +487,15 @@ class Simulate(tk.Button):
                 card.show_card(card.current_card)
             player.hand_update()
             player.check_result()
-            results.append('{}: {}'.format(player.name, player.result))
+            if player.result is not None:
+                results.append('{}: {}'.format(player.name, settings.RESULTS[player.result]))
+            else:
+                results.append('{}: {}'.format(player.name, player.result))
         self.test_counter += 1
 
         for result in results:
             print(result)
+        print()
 
 
 

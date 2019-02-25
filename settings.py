@@ -10,8 +10,10 @@ SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
 PLAYER_MODE = 2
-TEST_MODE = True
+TEST_MODE = False
 IMG_DIR = ['img/default/', 'img/board size/']
 
+RESULTS = ['High card', 'One pair', 'Two pairs', 'Three of a kind', 'Straight', 'Flush',
+           'Full house', 'Four of a kind', 'Straight Flush']
 CARD_COLORS = ['clubs', 'diamonds', 'hearts', 'spades']
 CARD_DECK = []
