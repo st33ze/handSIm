@@ -4,6 +4,7 @@ import random
 import glob, os
 import tkinter as tk
 from PIL import Image, ImageTk
+from operator import itemgetter
 from collections import Counter
 import settings  # Application settings and constant variables.
 import tests
@@ -42,13 +43,14 @@ class PreSim(tk.Frame):
                 player.grid(row=0, column=players.index(player), pady=(0,30),
                             padx=(10,10))
             
-        # Simulation amount input  frame.
+        # Simulation amount input frame.
         user_input = SimQuantity(self)
         user_input.grid(row=2, column=0, pady=(10,0))
 
         # Simulation button.
         sim_button = Simulate(self, players, user_input)
         sim_button.grid(row=2, column=1, pady=(10,0))
+
 
 
 class Player(tk.LabelFrame):
@@ -166,21 +168,13 @@ class Player(tk.LabelFrame):
                 lower_straight[last_item] = -1
                 lower_straight.sort()
 
-                if lower_straight[4] - lower_straight[0] == 4:
-                    return True
+                if lower_straight[4] - lower_straight[0] == 4: return True
 
             # Check other straight options.
             for _ in range(len(straight_check) - 4):
-                if straight_check[4 + _] - straight_check[_] == 4:
-                    return True
+                if straight_check[4 + _] - straight_check[_] == 4: return True
 
         return False
-
-
-
-
-
-
 
 
 
@@ -364,7 +358,7 @@ class Simulate(tk.Button):
         self.input_obj = input_obj # Reference to input object.
         self.show_error = None # Show error label.
         self.error = None # Error message.
-        self.test_counter = 12 # For simulation tests.
+        self.test_counter = 0 # For simulation tests.
 
         self.widget_config()
 
@@ -382,11 +376,12 @@ class Simulate(tk.Button):
         self['command'] = lambda: self.simulate()
     
     def simulate(self):
-        if settings.TEST_MODE:
-            self.sim_test()
+        ''' Simulation algorithm.'''
+        
+        # For testing purpose.
+        if settings.TEST_MODE: self.sim_test()
 
         else:
-            ''' Simulation algorithm.'''
             user_input = self.input_obj.value.get()
             
             # Delete old error label if exists.
@@ -396,7 +391,7 @@ class Simulate(tk.Button):
             # If input value is correct, simulate games.
             sim_amount = self.validate_input(user_input)
             if sim_amount:
-                
+                current_board = []
                 # Set all the button and input widgets as disabled.
                 for player in self.players_obj:
                     for card in player.cards:
@@ -427,23 +422,38 @@ class Simulate(tk.Button):
                 for player in self.players_obj:
                     player.hand_update()
                 
-                
-                # Simulate sim_amount games.
-                self.sim_game(deck)
-                    
-            # Else raise an error.
+                # Simulate sim_amount of games.
+                if sim_amount > 1:
+                    for _ in range(sim_amount):
+                        self.sim_game(deck, False)
+                else:
+                    # One game mode.
+                    self.sim_game(deck, current_board)
+            
+            # If input value not correct, raise an error.
             else:
                 self.show_error = tk.Label(self.parent, text=self.error, 
                                            bg=settings.BACKGROUND,
                                            fg=settings.FAIL_COLOR,
                                            font=settings.SMALL_FONT)
                 self.show_error.grid(row=1, columnspan=2)
-
-    def sim_game(self, deck):
+    
+    def validate_input(self, input):
+        ''' Validates simulations amount input. '''
+        try:
+            value = int(input)
+            if value < 1:
+                self.error = 'Give a positive ingteger.'
+            else:
+                return value
+        except ValueError:
+            self.error = 'Invalid simulations amount value.'
+    
+    def sim_game(self, deck, board):
         ''' Simulates one game.'''
         # players_hands = hands
         free_cards = list(deck)
-        board = []
+        # winner = []
 
         # Draw 5 board cards - 3 FLOP, 1 TURN, 1 RIVER.
         for _ in range(5):
@@ -460,18 +470,233 @@ class Simulate(tk.Button):
             player.board = board
             player.check_result()
 
+    def win_check(self):
+        ''' Returns list of winner/winners. '''
+        winner = []
+        for player in self.players_obj:
+            if winner:
+                if winner[0].result < player.result:
+                    winner = []
+                    winner.append(player)
+                elif winner[0].result == player.result:
+                    better_card = self.players_compare(winner[0], player)
+                    if not better_card:
+                        winner.append(player)
+                    elif winner[0] != better_card:
+                        winner = []
+                        winner.append(player)
+            else: winner.append(player)
+        return winner
 
-    def validate_input(self, input):
-        ''' Validates simulations amount input.'''
-        try:
-            value = int(input)
-            if value < 1:
-                self.error = 'Give an positive ingteger.'
+    def players_compare(self, player_a, player_b):
+        ''' Returns player object with better hand. If hands are even, returns None. '''
+
+        cards_a = sorted(player_a.hand + player_a.board, key=itemgetter(1))
+        cards_b = sorted(player_b.hand + player_b.board, key=itemgetter(1))
+        result = player_a.result
+        symbols_a = []
+        symbols_b = []
+        colors_a = []
+        colors_b = []
+
+        for _ in range(7):
+            symbols_a.append(cards_a[_][1])
+            symbols_b.append(cards_b[_][1])
+            colors_a.append(cards_a[_][0])
+            colors_b.append(cards_b[_][0])
+        
+        # High card.
+        if result == 0:
+            for _ in range(5):
+                if cards_a[6-_][1] > cards_b[6-_][1]:
+                    return player_a
+                elif cards_a[6-_][1] < cards_b[6-_][1]:
+                    return player_b
+            return None
+
+        # One pair.
+        if result == 1:
+            pair_a = Counter(symbols_a).most_common(1)[0][0]
+            pair_b = Counter(symbols_b).most_common(1)[0][0]
+            # Look for best player.
+            if pair_a > pair_b: return player_a
+            elif pair_a < pair_b: return player_b
             else:
-                return value
-        except ValueError:
-            self.error = 'Invalid simulations amount value.'
+                # Players have the same pair, look for higher card.
+                # Remove pairs from player boards.
+                self.card_remove([pair_a, pair_b],[cards_a, cards_b])
+                # Look for higher card.
+                for _ in range(3):
+                    if cards_a[4-_][1] > cards_b[4-_][1]: return player_a
+                    elif cards_a[4-_][1] < cards_b[4-_][1]: return player_b
+                return None
 
+        # Two pairs.
+        if result == 2:
+            # Lists of most common cards.
+            common_a = Counter(symbols_a).most_common(3)
+            common_b = Counter(symbols_b).most_common(3)
+            pairs_a = []
+            pairs_b = []
+            for _ in range(3):
+                if common_a[2-_][1] == 2: pairs_a.append(common_a[2-_][0])
+                if common_b[2-_][1] == 2: pairs_b.append(common_b[2-_][0])
+            # Select two highest pairs possible for each player.
+            pairs_a.sort(reverse=True)
+            pairs_a = pairs_a[:2]
+            pairs_b.sort(reverse=True)
+            pairs_b = pairs_b[:2]
+            # Look for better player.
+            if pairs_a[0] > pairs_b[0] or pairs_a[1] > pairs_b[1]: return player_a
+            elif pairs_a[0] < pairs_b[0] or pairs_a[1] < pairs_b[1]: return player_b
+            else:
+                # Both players have the same pairs. Look for kicker.
+                # Remove pairs from card sets.
+                self.card_remove([pairs_a[0],pairs_b[0]], [cards_a, cards_b])
+                self.card_remove([pairs_a[1],pairs_b[1]], [cards_a, cards_b])
+                if cards_a[2] > cards_b[2]: return player_a
+                elif cards_a[2] < cards_b[2]: return player_b
+                else: return None
+
+        # Three of a kind.
+        if result == 3:
+            # Look for the higher set/trips.
+            set_a = Counter(symbols_a).most_common(1)[0][0]
+            set_b = Counter(symbols_b).most_common(1)[0][0]
+            if set_a > set_b: return player_a
+            elif set_a < set_b: return player_b
+            # Else players have even sets. Look for the kicker.
+            else:
+                self.card_remove([set_a, set_b], [cards_a, cards_b])
+                for _ in range(2):
+                    if cards_a[3-_] > cards_b[3-_]: return player_a
+                    elif cards_a[3-_] < cards_b[3-_]: return player_b
+                return None
+        
+        # Straight.
+        if result == 4:
+            straight_a = None
+            straight_b = None
+            # Look for highest straight.
+            for _ in range(3):
+                if straight_a is None and symbols_a[6-_] - symbols_a[2-_] == 4:
+                    straight_a = symbols_a[2-_:7-_]
+                if straight_b is None and symbols_b[6-_] - symbols_b[2-_] == 4:
+                    straight_b = symbols_b[2-_:7-_]
+            # If any of straights are still None, than it must be a lower straight.
+            if straight_a is None or straight_b is None:
+                if straight_a is not None and straight_b is None: return player_a
+                elif straight_a is None and straight_b is not None: return player_b
+                else: return None
+            
+            if straight_a > straight_b: return player_a
+            elif straight_a < straight_b: return player_b
+            else: return None
+        
+        # Flush.
+        if result == 5:
+            # There can be only one color, so check only 1 player.
+            color = Counter(colors_a).most_common(1)[0][0]
+            # Remove no color cards and look for highest color card.
+            self.card_remove(color, [cards_a, cards_b], 'color')
+            size_a = len(cards_a) - 1
+            size_b = len(cards_b) - 1 
+            for _ in range(5):
+                if cards_a[size_a-_] > cards_b[size_b-_]: return player_a
+                elif cards_a[size_a-_] < cards_b[size_b-_]: return player_b
+            return None
+        
+        # Full house.
+        if result == 6:
+            # List most common cards and assign to pairs or sets.
+            common_a = Counter(symbols_a).most_common(3)
+            common_b = Counter(symbols_b).most_common(3)
+            sets_a, sets_b, pairs_a, pairs_b = [], [], [], []
+            for _ in range(3):
+                if common_a[_][1] == 3:
+                    sets_a.append(common_a[_][0])
+                elif common_a[_][1] == 2:
+                    pairs_a.append(common_a[_][0])
+                if common_b[_][1] == 3:
+                    sets_b.append(common_b[_][0])
+                elif common_b[_][1] == 2:
+                    pairs_b.append(common_b[_][0])
+            # Sort sets and pairs and pick the highest.
+            for i in [sets_a, sets_b, pairs_a, pairs_b]:
+                i.sort(reverse=True)
+            sets_a, sets_b = sets_a[0], sets_b[0]
+            pairs_a, pairs_b = pairs_a[0], pairs_b[0]
+            # Check which player is better.
+            if sets_a > sets_b: return player_a
+            elif sets_a < sets_b: return player_b
+            elif pairs_a > pairs_b: return player_a
+            elif pairs_a < pairs_b: return player_b
+            else: return None
+        
+        # Four of a kind.
+        if result == 7:
+            # Get four of a kind symbol and remove from decks.
+            common = Counter(symbols_a).most_common(1)[0][0]
+            self.card_remove([common, common], [cards_a, cards_b])
+            # Check which player is better.
+            if cards_a[2][1] > cards_b[2][1]: return player_a
+            elif cards_a[2][1] < cards_b[2][1]: return player_b
+            else: return None
+        
+        # Straight Flush.
+        if result == 8:
+            # Remove all non color cards from decks and look for highest color card.
+            color = Counter(colors_a).most_common(1)[0][0]
+            self.card_remove(color, [cards_a, cards_b], 'color')
+            symbols_a, symbols_b = [], []
+            size_a, size_b = len(cards_a) - 1, len(cards_b) - 1
+            highest_a, highest_b = None, None
+            for _ in range(7):
+                if _ <= size_a:
+                    symbols_a.append(cards_a[_][1])
+                if _ <= size_b:
+                    symbols_b.append(cards_b[_][1])
+            for _ in range(3):
+                if (highest_a == None and 
+                    5 + _ <= size_a + 1 and
+                    symbols_a[size_a-_] - symbols_a[size_a-4-_] == 4):
+                    highest_a = symbols_a[size_a-_]
+                if (highest_b == None and
+                    5 + _ <= size_b + 1 and
+                    symbols_b[size_b-_] - symbols_b[size_b-4-_] == 4):
+                    highest_b = symbols_b[size_b-_]
+            
+            # If any highest cards are None, it must be a lower straight flush.
+            if highest_a is None or highest_b is None:
+                if highest_a is not None and highest_b is None: return player_a
+                elif highest_a is None and highest_b is not None: return player_b
+                else: return None
+                
+            if highest_a > highest_b: return player_a
+            elif highest_a < highest_b: return player_b
+            else: return None
+
+    def card_remove(self, cards, boards, mode='symbol'):
+        ''' Removes given cards, from given boards. '''
+        iterator_a = 0
+        iterator_b = 0
+
+        while iterator_a < len(boards[0]) and iterator_b < len(boards[1]):
+            # Remove card from Player A deck, if it matches given symbol.
+            if mode == 'symbol' and cards[0] == boards[0][iterator_a][1]:
+                boards[0].remove(boards[0][iterator_a])
+            # Remove card from Player A deck, that is not in given color.
+            elif mode == 'color' and cards != boards[0][iterator_a][0]:
+                boards[0].remove(boards[0][iterator_a])
+            else: iterator_a += 1
+            
+            # Remove card from Player B deck, if it matches given symbol.
+            if mode == 'symbol' and cards[1] == boards[1][iterator_b][1]:
+                boards[1].remove(boards[1][iterator_b])
+            # Remove card from Player A deck, that is not in given color.
+            elif mode == 'color' and cards != boards[1][iterator_b][0]:
+                boards[1].remove(boards[1][iterator_b])
+            else: iterator_b += 1
 
     def sim_test(self):
         ''' For simulation algorithm testing. '''
@@ -491,13 +716,14 @@ class Simulate(tk.Button):
                 results.append('{}: {}'.format(player.name, settings.RESULTS[player.result]))
             else:
                 results.append('{}: {}'.format(player.name, player.result))
+        winners = self.win_check()
+        for winner in winners:
+            print('{} wins with {}.'.format(winner.name, settings.RESULTS[winner.result]))
         self.test_counter += 1
 
         for result in results:
             print(result)
         print()
-
-
 
 
 
@@ -527,7 +753,7 @@ class Board(tk.Frame):
                                             padx=(30,0))
 
     def create_card(self, card):
-        ''' Returns card object.'''
+        ''' Returns card object. '''
         color = card[0]
         symbol = card[1]
 
@@ -544,15 +770,13 @@ class Board(tk.Frame):
 
 
 # Other functions
-
 def deck_populate():
-    '''Populates CARD_DECK variable.'''
+    ''' Populates CARD_DECK variable. '''
     for _ in range(4):
         settings.CARD_DECK.append(list(range(13))) 
 
-
 def card_resize(scale, path, save_path):
-    '''Script helping to resize original card images.'''
+    ''' Script helping to resize original card images. '''
     # Change size for every png image in the path folder.    
     for image in glob.glob(path + '.png'):
         img = Image.open(image)
