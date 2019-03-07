@@ -10,7 +10,8 @@ SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
 PLAYER_MODE = 2
-TEST_MODE = True
+TEST_MODE = False
+TEST_COUNTER = 0
 IMG_DIR = ['img/default/', 'img/board size/']
 
 RESULTS = ['High card', 'One pair', 'Two pairs', 'Three of a kind', 'Straight', 'Flush',

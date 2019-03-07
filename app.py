@@ -29,8 +29,14 @@ class HandSim(tk.Frame):
                  font=settings.HEADER_FONT).grid(row=0)
         
 
-        preSim = helpers.PreSim(self)
-        preSim.grid(row=1, pady=(10,40))
+        self.main_window = helpers.MainWindow(self)
+        self.main_window.grid(row=1, pady=(10,40))
+    
+    def reset_app(self):
+        '''Resets application to pre simulation view.'''
+        self.main_window.grid_forget()
+        self.main_window = helpers.MainWindow(self)
+        self.main_window.grid(row=1, pady=(10,40))
         
 
 
