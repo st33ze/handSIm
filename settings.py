@@ -9,7 +9,10 @@ FONT = ('Arial', 12)
 SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
+HEADER = 'Texas Holdem Hands Simulator'
 PLAYER_MODE = 2
+DATA = {}
+DEFAULT_SIM_AMOUNT = 1
 TEST_MODE = False
 TEST_COUNTER = 0
 IMG_DIR = ['img/default/', 'img/board size/']

@@ -1,13 +1,18 @@
 # Classes and functions supporting main application.
 
+import time
+import queue
+import pickle
 import random
 import glob, os
+import threading
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 from operator import itemgetter
 from collections import Counter
 import settings as stg # Application settings and constant variables.
-import tests
+if stg.TEST_MODE == True: import tests # For testing purpose
 
 # TODO:
 # * Check if parent variable is needed in those classes.
@@ -23,6 +28,7 @@ class MainWindow(tk.Frame):
         super().__init__(parent)
         self.parent = parent
 
+        deck_populate()
         self.config_frame()
         self.create_widgets()
 
@@ -34,13 +40,10 @@ class MainWindow(tk.Frame):
         self.players = []
         for _ in range(stg.PLAYER_MODE):
             self.players.append(Player(self, 'Player ' + str(_ + 1)))
-        for player in self.players:
-            if self.players.index(player) < len(self.players) - 1:
-                player.grid(row=0, column=self.players.index(player), pady=(0,30),
-                            padx=(10,40))
-            else:
-                player.grid(row=0, column=self.players.index(player), pady=(0,30),
-                            padx=(10,10))
+        for index, player in enumerate(self.players):
+            if index < len(self.players) - 1:
+                player.grid(row=0, column=index, pady=(0,30), padx=(10,40))
+            else: player.grid(row=0, column=index, pady=(0,30), padx=(10,10))
             
         # Simulation amount input frame.
         self.user_input = SimQuantity(self)
@@ -50,16 +53,17 @@ class MainWindow(tk.Frame):
         self.sim_button = Simulate(self)
         self.sim_button.grid(row=2, column=1, pady=(10,0))
     
-    def to_post_sim(self, results, single_sim=False):
+    def show_results(self, sim_amount):
         '''Changes main window to post simulation view.'''
         
         # Delete not needed widgets and show players results.
-        self.user_input.grid_forget()
-        self.sim_button.grid_forget()
-        for player, result in zip(self.players, results):
-            player.post_sim(result)
+        self.user_input.grid_forget() # DESTROY?????
+        self.sim_button.grid_forget() # DESTROY?????
 
-        if single_sim:
+        for player in self.players:
+            player.post_sim(sim_amount)
+        
+        if sim_amount == 1:
             Board(self, self.players[0].board).grid(row=1, columnspan=2, pady=(0,20))
         
         # Button that allows to go back to pre simulation view, after seeing results.
@@ -67,10 +71,9 @@ class MainWindow(tk.Frame):
                   bg=stg.SUCCESS_COLOR, fg=stg.FOREGROUND,
                   highlightbackground=stg.BACKGROUND, highlightcolor=stg.BACKGROUND,
                   activebackground=stg.FOREGROUND, activeforeground=stg.BACKGROUND,
-                  highlightthickness=2, command=self.parent.reset_app).grid(row=2,
+                  highlightthickness=2, command=self.parent.reset_view).grid(row=2,
                   columnspan=stg.PLAYER_MODE)
     
-
 
 
 class Player(tk.LabelFrame):
@@ -85,7 +88,9 @@ class Player(tk.LabelFrame):
         self.name = name
         self.cards = [] # Card objects.
         self.hand = [] # Player current hand.
-        self.board = [] # Cards in current board.
+        self.board = [] # Current board cards.
+        self.current_wins = 0
+        self.win = False # For the sum up.
         
         self.config_frame()
         self.create_widgets()
@@ -106,7 +111,7 @@ class Player(tk.LabelFrame):
         self.cards.append(card_2)
         self.hand.append(card_1.current_card)
         self.hand.append(card_2.current_card)
-    
+
     def hand_update(self):
         self.hand = [self.cards[0].current_card, self.cards[1].current_card]
     
@@ -116,19 +121,18 @@ class Player(tk.LabelFrame):
         cards = self.hand + self.board
         colors = []
         symbols = []
-
+        
+        # Get colors and symbols from cards.
         for card in cards:
-            # Get colors.
             colors.append(card[0])
-            # Get symbols.
             symbols.append(card[1])
         
-        # Color check.
+        # Flush check.
         clr_counter = Counter(colors).most_common(1)
         if clr_counter[0][1] >= 5:
             self.result = 5 # stg.RESULTS[5] = Flush
             
-            # Poker check.
+            # Straight Flush check.
             if self.is_straight(symbols):
                 self.result = 8
                 return
@@ -166,8 +170,7 @@ class Player(tk.LabelFrame):
                     return
        
         # Else high card.
-        if not self.result:
-            self.result = 0
+        if not self.result: self.result = 0
             
     def is_straight(self, symbols):
         ''' Check if given board contains straight. '''
@@ -192,7 +195,7 @@ class Player(tk.LabelFrame):
 
         return False
 
-    def post_sim(self, result):
+    def post_sim(self, sim_amount):
         '''Show post simulation player view with result.'''
 
         # Hide not needed widgets from cards objects.
@@ -202,10 +205,21 @@ class Player(tk.LabelFrame):
         
         # Show result.
         result_color = stg.FAIL_COLOR
-        if result[0]: result_color = stg.SUCCESS_COLOR
-        tk.Label(self, text=result[1], bg=self['bg'], fg=result_color,
-                 font=stg.FONT).grid(row=1, columnspan=2, pady=(10,10))
-
+        if sim_amount == 1:
+            if self.current_wins == 1: result_color = stg.SUCCESS_COLOR
+            tk.Label(self, text=stg.RESULTS[self.result], bg=self['bg'], fg=result_color,
+                     font=stg.FONT).grid(row=1, columnspan=2, pady=(10,10))
+        else:
+            if self.win == True: result_color = stg.SUCCESS_COLOR
+            win_rate = round(self.current_wins / sim_amount * 100, 2)
+            tk.Label(self, text='WINNING RATE', bg=self['bg'], fg=result_color,
+                     font=stg.FONT).grid(row=1, columnspan=2, pady=(10,0))
+            tk.Label(self, text=str(win_rate) + '%', bg=self['bg'], fg=result_color,
+                     font=stg.FONT).grid(row=2, columnspan=2, pady=(0,10))
+            wins_display = f'{self.current_wins} / {sim_amount} GAMES'         
+            tk.Label(self, text=wins_display, bg=self['bg'], fg=result_color,
+                     font=stg.SMALL_FONT).grid(row=3, columnspan=2, pady=(0,10))
+            
 
 
 class Card(tk.Frame):
@@ -227,7 +241,6 @@ class Card(tk.Frame):
 
     def config_frame(self):
         self['bg'] = stg.BACKGROUND
-        # self['fg'] = stg.FOREGROUND
 
     def create_widgets(self):
         # Create card image.
@@ -310,19 +323,15 @@ class Card(tk.Frame):
                 symbol += 1
                 while(symbol > 12 or stg.CARD_DECK[color][symbol] == None):
                     # If outside card range, reset.
-                    if symbol > 12:
-                        symbol = 0
-                    else:
-                        symbol += 1
+                    if symbol > 12: symbol = 0
+                    else: symbol += 1
             # Look in negative drieciton.
             else:
                 symbol -= 1
                 while(symbol < 0 or stg.CARD_DECK[color][symbol] == None):
                     # If outside card range, reset backwards.
-                    if symbol < 0:
-                        symbol = 12
-                    else:
-                        symbol -= 1
+                    if symbol < 0: symbol = 12
+                    else: symbol -= 1
             
             # Update current_card variable and show new card.
             self.current_card[0] = color
@@ -345,7 +354,7 @@ class SimQuantity(tk.Frame):
         self.parent = parent
         self.changable_widgets = []
         self.value = tk.StringVar()
-        self.value.set(1)
+        self.value.set(stg.DEFAULT_SIM_AMOUNT)
 
         self.config_frame()
         self.create_widgets()
@@ -356,7 +365,7 @@ class SimQuantity(tk.Frame):
     def create_widgets(self):
         input_label = tk.Label(self, text='Simulations amount:', bg=stg.BACKGROUND, 
                                font=stg.FONT, fg=stg.FOREGROUND)
-        input_entry = tk.Entry(self, textvariable=self.value, width=6, relief='flat',
+        input_entry = tk.Entry(self, textvariable=self.value, width=8, relief='flat',
                                bg=stg.BACKGROUND, fg=stg.FOREGROUND,
                                insertbackground=stg.SUCCESS_COLOR,
                                highlightbackground=stg.BACKGROUND,
@@ -378,8 +387,7 @@ class Simulate(tk.Button):
         self.parent = parent
         self.players_obj = parent.players # Reference to players objects list.
         self.input_obj = parent.user_input # Reference to input object.
-        self.show_error = None # Show error label.
-        self.error = None # Error message.
+        self.show_error = None # Error label.
 
         self.widget_config()
 
@@ -401,95 +409,196 @@ class Simulate(tk.Button):
         
         # Validate input.
         user_input = self.input_obj.value.get()
-        sim_amount = self.validate_input(user_input)
+        self.sim_amount = self.validate_input(user_input)
 
-        # For testing purpose.
-        if sim_amount:
-            if not stg.TEST_MODE:
-                current_board = []
-                # Set all the button and input widgets as disabled.
-                for player in self.players_obj:
-                    for card in player.cards:
-                        for widget in card.changable_widgets:
-                            widget['state'] = 'disabled'
-                for widget in self.input_obj.changable_widgets:
-                    widget['state'] = 'disabled'
-                self['state'] = 'disabled'
+        if self.sim_amount:
+            stg.DEFAULT_SIM_AMOUNT = self.sim_amount
+            # Set all the button and input widgets as disabled.
+            for player in self.players_obj:
+                for card in player.cards:
+                    for widget in card.changable_widgets:
+                        widget['state'] = 'disabled'
+            for widget in self.input_obj.changable_widgets:
+                widget['state'] = 'disabled'
+            self['state'] = 'disabled'
 
-                # Check for blank cards.
-                cards_to_random = []
-                deck = list(range(1, 53))
-                for player_object in self.players_obj:
-                    for card in player_object.cards:
-                        if any(x is not None for x in card.current_card):
-                            deck.remove(card.current_card[0] * 13 + 
-                                        (card.current_card[1] + 1))
-                        else:
-                            cards_to_random.append(card)
-                # If blank pick random cards.
-                for card in cards_to_random:
-                    random_card = random.choice(deck)
-                    card.current_card = [(random_card - 1) // 13, (random_card -1) % 13]
-                    card.show_card(card.current_card)
-                    deck.remove(random_card)
-                
-                # Update players hands.
-                for player in self.players_obj:
-                    player.hand_update()
-                
-                # Simulate sim_amount of games.
-                if sim_amount > 1:
-                    for _ in range(sim_amount):
-                        self.sim_game(current_board)
-                else:
-                    # Single game mode or test mode.
-                    print(stg.TEST_COUNTER)
-                    board = self.get_random_board(deck)
-                    results = self.sim_game(board)
-                    # Single simulation - transform results to readable strings.
-                    for result in results:
-                        result[1] = stg.RESULTS[result[1]]
-                    stg.TEST_COUNTER += 1
-                    self.parent.to_post_sim(results, True)
-            else:
-                # Test mode
-                board = self.sim_test()
-                results = self.sim_game(board)
-                print(results)
-                # Single simulation - transform results to readable strings.
-                for result in results:
-                    result[1] = stg.RESULTS[result[1]]
-                self.parent.to_post_sim(results, True) 
-
-
-                # IF RESULT IS STRING THAN SINGLE SIM IF IS INT THAN > 1 SIMS
+            # Look for blank cards and remove already used cards.
+            cards_to_random = []
+            self.deck = list(range(1, 53))
+            for player_object in self.players_obj:
+                for card in player_object.cards:
+                    if any(x is not None for x in card.current_card):
+                        self.deck.remove(card.current_card[0] * 13 + 
+                                         (card.current_card[1] + 1))
+                    else:
+                        cards_to_random.append(card)
+            # If blank pick random card.
+            for card in cards_to_random:
+                random_card = random.choice(self.deck)
+                card.current_card = [(random_card - 1) // 13, (random_card -1) % 13]
+                card.show_card(card.current_card)
+                self.deck.remove(random_card)
             
-    
+            # Update players hands.
+            for player in self.players_obj:
+                player.hand_update()
+            
+            # Simulate sim_amount of games.
+            if self.sim_amount > 1:
+                if not stg.TEST_MODE:
+                    self.sim_thread()
+                # Test mode.
+                else:
+                    for _ in range(self.sim_amount):
+                        board = self.sim_test()
+                        self.sim_game(board)
+                        self.get_sim_winner()
+                
+            # Single game mode.
+            else:
+                if not stg.TEST_MODE: board = self.get_random_board()
+                else: board = self.sim_test() # Test mode.
+                self.sim_game(board)
+                self.parent.show_results(self.sim_amount)
+
     def validate_input(self, input):
         ''' Validates simulations amount input. '''
 
         # Delete old error if exists.
-        self.error = None
+        error = None
         if self.show_error:
-            self.show_error.grid_forget()
+            self.show_error.destroy()
         try:
             value = int(input)
             if value < 1:
-                self.error = 'Give a positive integer.'
+                error = 'Give a positive integer.'
         except ValueError:
-            self.error = 'Invalid simulations amount value.'
+            error = 'Invalid simulations amount value.'
 
-        if self.error:
-            self.show_error = tk.Label(self.parent, text=self.error, bg=stg.BACKGROUND,
+        if error:
+            self.show_error = tk.Label(self.parent, text=error, bg=stg.BACKGROUND,
                                        fg=stg.FAIL_COLOR, font=stg.SMALL_FONT)
             self.show_error.grid(row=1, columnspan=2)
         else:
             return value
     
-    def get_random_board(self, deck):
+    def sim_thread(self):
+        '''Simulates sim_amount of games, if needed in different thread.'''
+
+        # Assess simulation time.
+        sim_time = self.get_sim_time()
+        print(sim_time)
+        
+        # If simulation is longer than a few seconds, create thread and progress bar.
+        if sim_time > 2:
+            s = ttk.Style()
+            s.configure('Horizontal.TProgressbar', thickness=5, troughcolor=stg.FOREGROUND,
+                        troughrelief='flat', borderwidth=2, pbarrelief='flat')
+            prog_bar = ttk.Progressbar(self.parent, style='Horizontal.TProgressbar', 
+                                       orient='horizontal', length=300, mode='determinate')
+            prog_bar.grid(row=1, columnspan=2, pady=(10,20))
+            self.parent.update()
+
+            prog_status = queue.LifoQueue()
+            t = threading.Thread(target=self.sim_n_games, args=(prog_status,))
+            t.start()
+            self.check_progress(prog_status, prog_bar)
+
+        # For short simulation additional thread is not needed.
+        else:
+            self.parent.update()
+            self.sim_n_games()
+            self.get_sim_winner()
+        
+    def get_sim_time(self):
+        '''Returns time needed for sim_amount of simulations.'''
+
+        # Get average simulaton time value.
+        try:
+            with open('data.pickle', 'rb') as f:
+                stg.DATA = pickle.load(f)
+                avg_sim_time = stg.DATA.get('avg_sim_time')
+        except FileNotFoundError:
+            # Make some initial simulations.
+            tests_amount = 100
+            start = time.time()
+            for _ in range(tests_amount):
+                board = self.get_random_board()
+                self.sim_game(board)
+            end = time.time()
+            avg_sim_time = (end - start) / tests_amount
+            stg.DATA['avg_sim_time'] = avg_sim_time
+            with open('data.pickle', 'wb') as f:
+                pickle.dump(stg.DATA, f)
+        
+        return avg_sim_time * self.sim_amount
+
+    def check_progress(self, prog_status, bar):
+        '''Checks current progress queue status and updates progress bar.'''
+
+        if not prog_status.empty():
+            message = prog_status.get()
+            if message is 'DONE': 
+                bar.destroy()
+                self.get_sim_winner()
+                return
+            bar['value'] = message
+            
+        self.parent.parent.after(200, self.check_progress, prog_status, bar)
+            
+    def sim_n_games(self, status=None):
+        '''Simulates n number of games and measures simulation time.'''
+        
+        start = time.time()
+        # Simulation with progress bar.
+        if status:
+            # Assess interval of information progress update.
+            interval = self.sim_amount // 100
+            rest_sim = self.sim_amount % 100
+            for sim_percent in range(100):
+                for _ in range(interval):
+                    board = self.get_random_board()
+                    self.sim_game(board)
+                status.put(sim_percent + 1)
+            # Simulate rest of the games.
+            for _ in range(rest_sim):
+                board = self.get_random_board()
+                self.sim_game(board)
+            status.put('DONE')
+        
+        # Simulation without progress bar.
+        else:
+            for _ in range(self.sim_amount):
+                board = self.get_random_board()
+                self.sim_game(board)
+        end = time.time()
+        
+        # Get the simulation time and update data file.
+        sim_time = (end - start) / self.sim_amount
+        stg.DATA['avg_sim_time'] = (stg.DATA['avg_sim_time'] + sim_time) / 2
+        with open('data.pickle', 'wb') as f:
+            pickle.dump(stg.DATA, f)
+
+    def get_sim_winner(self):
+        '''Looks for the players with the best general scores and shows score window.'''
+
+        winners = []
+        for player in self.players_obj:
+            if winners:
+                if winners[0].current_wins < player.current_wins:
+                    winners = []
+                    winners.append(player)
+                elif winners[0].current_wins == player.current_wins:
+                    winners.append(player)
+            else: winners.append(player)
+        
+        for winner in winners: winner.win = True
+        self.parent.show_results(self.sim_amount)
+
+    def get_random_board(self):
         '''Returns five random board cards.'''
 
-        free_cards = list(deck)
+        free_cards = list(self.deck)
         board = []
 
         for _ in range(5):
@@ -503,26 +612,23 @@ class Simulate(tk.Button):
     def sim_game(self, board):
         ''' Simulates one game.'''
         
-        # Update board values for each Player object.
+        # Update board values and look for results.
         for player in self.players_obj:
             player.board = board
             player.check_result()
 
         winners = self.win_check()
 
-        results = []
+        # Check and assign winners.
         for player in self.players_obj:
-            results.append([False, player.result])
             for winner in winners:
                 if player == winner:
-                    results[self.players_obj.index(player)][0] = True
+                    player.current_wins += 1
                     winners.remove(winner)
                     break
-        
-        return results
 
     def win_check(self):
-        ''' Returns list of winner/winners. '''
+        '''Returns list of winner/winners.'''
         winner = []
         for player in self.players_obj:
             if winner:
@@ -662,26 +768,25 @@ class Simulate(tk.Button):
             # List most common cards and assign to pairs or sets.
             common_a = Counter(symbols_a).most_common(3)
             common_b = Counter(symbols_b).most_common(3)
-            sets_a, sets_b, pairs_a, pairs_b = [], [], [], []
-            for _ in range(3):
-                if common_a[_][1] == 3:
-                    sets_a.append(common_a[_][0])
-                elif common_a[_][1] == 2:
-                    pairs_a.append(common_a[_][0])
-                if common_b[_][1] == 3:
-                    sets_b.append(common_b[_][0])
-                elif common_b[_][1] == 2:
-                    pairs_b.append(common_b[_][0])
-            # Sort sets and pairs and pick the highest.
-            for i in [sets_a, sets_b, pairs_a, pairs_b]:
-                i.sort(reverse=True)
-            sets_a, sets_b = sets_a[0], sets_b[0]
-            pairs_a, pairs_b = pairs_a[0], pairs_b[0]
+            # Look for the highest three of a kind.
+            set_a, set_b = common_a[0][0], common_b[0][0]
+            if common_a[1][1] == 3 and set_a < common_a[1][0]:
+                set_a = common_a[1][0]
+                common_a.remove(common_a[1])
+            else: common_a.remove(common_a[0])
+            if common_b[1][1] == 3 and set_b < common_b[1][0]:
+                set_b = common_b[1][0]
+                common_b.remove(common_b[1])
+            else: common_b.remove(common_b[0])
+            # Look for the highest pairs.
+            pair_a, pair_b = common_a[0][0], common_b[0][0]
+            if common_a[1][1] >= 2 and pair_a < common_a[1][0]: pair_a = common_a[1][0]
+            if common_b[1][1] >= 2 and pair_b < common_b[1][0]: pair_b = common_b[1][0]
             # Check which player is better.
-            if sets_a > sets_b: return player_a
-            elif sets_a < sets_b: return player_b
-            elif pairs_a > pairs_b: return player_a
-            elif pairs_a < pairs_b: return player_b
+            if set_a > set_b: return player_a
+            elif set_a < set_b: return player_b
+            elif pair_a > pair_b: return player_a
+            elif pair_a < pair_b: return player_b
             else: return None
         
         # Four of a kind.
@@ -752,8 +857,10 @@ class Simulate(tk.Button):
             else: iterator_b += 1
 
     def sim_test(self):
-        ''' For simulation algorithm testing. '''
+        '''Returns board and sets player cards from tests.py.'''
+        # Get board cards from tests.py.
         board = tests.sim_data[stg.TEST_COUNTER][2]
+        # Get player cards from test.py.
         for player in self.players_obj:
             player_index = self.players_obj.index(player)
             for card in player.cards:
@@ -764,6 +871,8 @@ class Simulate(tk.Button):
         stg.TEST_COUNTER += 1
 
         return board
+
+
 
 class Board(tk.Frame):
     ''' 
@@ -782,13 +891,9 @@ class Board(tk.Frame):
         self['bg'] = stg.BACKGROUND
 
     def create_widgets(self):
-        for card in self.board:
-            if self.board.index(card) < 3:
-                self.create_card(card).grid(row=0, column=self.board.index(card),
-                                            padx=(10,0))
-            else:
-                self.create_card(card).grid(row=0, column=self.board.index(card),
-                                            padx=(30,0))
+        for index, card in enumerate(self.board):
+            if index < 3: self.create_card(card).grid(row=0, column=index, padx=(10,0))
+            else: self.create_card(card).grid(row=0, column=index, padx=(30,0))
 
     def create_card(self, card):
         ''' Returns card object. '''
@@ -810,6 +915,7 @@ class Board(tk.Frame):
 # Other functions
 def deck_populate():
     ''' Populates CARD_DECK variable. '''
+    stg.CARD_DECK = []
     for _ in range(4):
         stg.CARD_DECK.append(list(range(13))) 
 
