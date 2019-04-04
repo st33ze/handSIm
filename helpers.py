@@ -485,22 +485,17 @@ class Simulate(tk.Button):
     def sim_thread(self):
         '''Simulates sim_amount of games, if needed in different thread.'''
 
-        # Assess simulation time.
         sim_time = self.get_sim_time()
-        print(sim_time)
         
         # If simulation is longer than a few seconds, create thread and progress bar.
         if sim_time > 2:
-            s = ttk.Style()
-            s.configure('Horizontal.TProgressbar', thickness=5, troughcolor=stg.FOREGROUND,
-                        troughrelief='flat', borderwidth=2, pbarrelief='flat')
-            prog_bar = ttk.Progressbar(self.parent, style='Horizontal.TProgressbar', 
-                                       orient='horizontal', length=300, mode='determinate')
+            self.stop_sim = threading.Event()
+            prog_bar = ProgressBar(self.parent, self.stop_sim)
             prog_bar.grid(row=1, columnspan=2, pady=(10,20))
             self.parent.update()
-
+            
             prog_status = queue.LifoQueue()
-            t = threading.Thread(target=self.sim_n_games, args=(prog_status,))
+            t = threading.Thread(target=self.sim_n_games, daemon=True, args=(prog_status,))
             t.start()
             self.check_progress(prog_status, prog_bar)
 
@@ -533,18 +528,20 @@ class Simulate(tk.Button):
         
         return avg_sim_time * self.sim_amount
 
-    def check_progress(self, prog_status, bar):
+    def check_progress(self, prog_status, prog_bar):
         '''Checks current progress queue status and updates progress bar.'''
-
         if not prog_status.empty():
             message = prog_status.get()
             if message is 'DONE': 
-                bar.destroy()
+                prog_bar.destroy_widgets()
                 self.get_sim_winner()
                 return
-            bar['value'] = message
+            elif message is 'ABORT':
+                self.parent.parent.reset_view()
+                return
+            prog_bar.bar['value'] = message
             
-        self.parent.parent.after(200, self.check_progress, prog_status, bar)
+        self.parent.parent.after(200, self.check_progress, prog_status, prog_bar)
             
     def sim_n_games(self, status=None):
         '''Simulates n number of games and measures simulation time.'''
@@ -560,6 +557,9 @@ class Simulate(tk.Button):
                     board = self.get_random_board()
                     self.sim_game(board)
                 status.put(sim_percent + 1)
+                if self.stop_sim.is_set():
+                    status.put('ABORT')
+                    return
             # Simulate rest of the games.
             for _ in range(rest_sim):
                 board = self.get_random_board()
@@ -909,6 +909,47 @@ class Board(tk.Frame):
         card = tk.Label(self, image=img, bg=stg.BACKGROUND)
         card.image = img
         return card
+
+
+
+class ProgressBar(tk.Frame):
+    '''Frame containing Progressbar and Abort button.'''
+
+    def __init__(self, parent, abort):
+        super().__init__(parent)
+        self.parent = parent
+        self.abort = abort
+
+        self.config_frame()
+        self.create_widgets()
+
+    def config_frame(self):
+        self['bg']= stg.BACKGROUND
+    
+    def create_widgets(self):
+        # Progress bar.
+        bar_style = ttk.Style()
+        bar_style.configure('Horizontal.TProgressbar', thickness=5,
+                            troughcolor=stg.FOREGROUND, troughrelief='flat',
+                            borderwidth=2, pbarrelief='flat')
+        self.bar = ttk.Progressbar(self, style='Horizontal.TProgressbar',
+                                   orient='horizontal', length=300, mode='determinate')
+        self.bar.grid(row=0, column=0)
+
+        # Button.
+        img = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + 'abort.png'))
+        self.button = tk.Button(self, image=img, bg=stg.BACKGROUND, bd=0,
+                           activebackground=stg.BACKGROUND, highlightthickness=0,
+                           command=self.stop_sim)
+        self.button.image = img
+        self.button.grid(row=0, column=1, padx=(10,0))
+    
+    def stop_sim(self):
+        self.abort.set()
+
+    def destroy_widgets(self):
+        self.bar.destroy()
+        self.button.destroy()
 
 
 
