@@ -171,7 +171,13 @@ class Player(tk.LabelFrame):
        
         # Else high card.
         if not self.result: self.result = 0
-            
+
+    def show_hand(self):
+        '''Displays player current hand.'''
+        
+        for card in self.cards:
+            card.show_card(card.current_card)
+             
     def is_straight(self, symbols):
         ''' Check if given board contains straight. '''
         
@@ -452,12 +458,16 @@ class Simulate(tk.Button):
                     for _ in range(self.sim_amount):
                         board = self.sim_test()
                         self.sim_game(board)
-                        self.get_sim_winner()
+                    for player in self.players_obj: player.show_hand()
+                    self.get_sim_winner()
                 
             # Single game mode.
             else:
                 if not stg.TEST_MODE: board = self.get_random_board()
-                else: board = self.sim_test() # Test mode.
+                # Test mode.
+                else:
+                    board = self.sim_test()
+                    for player in self.players_obj: player.show_hand()
                 self.sim_game(board)
                 self.parent.show_results(self.sim_amount)
 
@@ -861,12 +871,9 @@ class Simulate(tk.Button):
         # Get board cards from tests.py.
         board = tests.sim_data[stg.TEST_COUNTER][2]
         # Get player cards from test.py.
-        for player in self.players_obj:
-            player_index = self.players_obj.index(player)
-            for card in player.cards:
-                card_index = player.cards.index(card)
-                card.current_card = tests.sim_data[stg.TEST_COUNTER][player_index][card_index]
-                card.show_card(card.current_card)
+        for p_id, player in enumerate(self.players_obj):
+            for c_id, card in enumerate(player.cards):
+                card.current_card = tests.sim_data[stg.TEST_COUNTER][p_id][c_id]
             player.hand_update()
         stg.TEST_COUNTER += 1
 
