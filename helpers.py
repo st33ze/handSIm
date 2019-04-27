@@ -8,6 +8,7 @@ import glob, os
 import threading
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 from operator import itemgetter
 from collections import Counter
@@ -173,11 +174,18 @@ class Player(tk.LabelFrame):
         if not self.result: self.result = 0
 
     def show_hand(self):
-        '''Displays player current hand.'''
+        '''Displays player's current hand.'''
         
         for card in self.cards:
             card.show_card(card.current_card)
-             
+   
+    def change_state(self, state):
+        '''Changes states of changable_widgets in cards objects.'''
+
+        for card in self.cards:
+            for widget in card.changable_widgets:
+                widget['state'] = state
+
     def is_straight(self, symbols):
         ''' Check if given board contains straight. '''
         
@@ -419,16 +427,9 @@ class Simulate(tk.Button):
 
         if self.sim_amount:
             stg.DEFAULT_SIM_AMOUNT = self.sim_amount
-            # Set all the button and input widgets as disabled.
-            for player in self.players_obj:
-                for card in player.cards:
-                    for widget in card.changable_widgets:
-                        widget['state'] = 'disabled'
-            for widget in self.input_obj.changable_widgets:
-                widget['state'] = 'disabled'
-            self['state'] = 'disabled'
+            self.change_widget_state('disabled')
 
-            # Look for blank cards and remove already used cards.
+            # Look for blank cards and remove already used cards from deck.
             cards_to_random = []
             self.deck = list(range(1, 53))
             for player_object in self.players_obj:
@@ -450,16 +451,14 @@ class Simulate(tk.Button):
                 player.hand_update()
             
             # Simulate sim_amount of games.
-            if self.sim_amount > 1:
-                if not stg.TEST_MODE:
-                    self.sim_thread()
-                # Test mode.
-                else:
-                    for _ in range(self.sim_amount):
-                        board = self.sim_test()
-                        self.sim_game(board)
-                    for player in self.players_obj: player.show_hand()
-                    self.get_sim_winner()
+            if self.sim_amount > 1 and not stg.TEST_MODE: self.sim_thread()
+            # Test mode.
+            elif self.sim_amount > 1:
+                for _ in range(self.sim_amount):
+                    board = self.sim_test()
+                    self.sim_game(board)
+                for player in self.players_obj: player.show_hand()
+                self.get_sim_winner()
                 
             # Single game mode.
             else:
@@ -492,15 +491,21 @@ class Simulate(tk.Button):
         else:
             return value
     
+    def change_widget_state(self, state):
+        '''Changes states of players, input widgets and self.'''
+
+        for player in self.players_obj: player.change_state(state)
+        for widget in self.input_obj.changable_widgets: widget['state'] = state
+        self['state'] = state
+
     def sim_thread(self):
         '''Simulates sim_amount of games, if needed in different thread.'''
 
         sim_time = self.get_sim_time()
-        
         # If simulation is longer than a few seconds, create thread and progress bar.
         if sim_time > 2:
             self.stop_sim = threading.Event()
-            prog_bar = ProgressBar(self.parent, self.stop_sim)
+            prog_bar = ProgressBar(self.parent, self.stop_sim, sim_time)
             prog_bar.grid(row=1, columnspan=2, pady=(10,20))
             self.parent.update()
             
@@ -550,7 +555,7 @@ class Simulate(tk.Button):
                 self.parent.parent.reset_view()
                 return
             prog_bar.bar['value'] = message
-            
+
         self.parent.parent.after(200, self.check_progress, prog_status, prog_bar)
             
     def sim_n_games(self, status=None):
@@ -920,12 +925,14 @@ class Board(tk.Frame):
 
 
 class ProgressBar(tk.Frame):
-    '''Frame containing Progressbar and Abort button.'''
+    '''Frame containing Progressbar, Abort button and Simulation time label.'''
 
-    def __init__(self, parent, abort):
+    def __init__(self, parent, abort, sim_time):
         super().__init__(parent)
         self.parent = parent
         self.abort = abort
+        self.sim_time = int(sim_time)
+        self.time_label = None
 
         self.config_frame()
         self.create_widgets()
@@ -950,13 +957,32 @@ class ProgressBar(tk.Frame):
                            command=self.stop_sim)
         self.button.image = img
         self.button.grid(row=0, column=1, padx=(10,0))
-    
+
+        # Simulation time.
+        if self.sim_time > 30:
+            self.time_label = self.time_show()
+            self.time_label.grid(row=1, columnspan=2)
+
     def stop_sim(self):
         self.abort.set()
 
+    def time_show(self):
+        '''Presents estimated simulation time.'''
+
+        seconds = self.sim_time
+        if seconds < 60: time_text = f'Estimated simulation time: {seconds}s.'
+        else:
+            minutes = seconds // 60
+            seconds = seconds % 60
+            time_text = f'Estimated simulation time: {minutes}min, {seconds}s.'
+            
+        return tk.Label(self, text=time_text, bg=stg.BACKGROUND, font=stg.SMALL_FONT,
+                        fg=stg.FOREGROUND)
+    
     def destroy_widgets(self):
         self.bar.destroy()
         self.button.destroy()
+        if self.time_label: self.time_label.destroy()
 
 
 

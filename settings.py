@@ -13,8 +13,8 @@ HEADER = 'Texas Holdem Hands Simulator'
 PLAYER_MODE = 2
 DATA = {}
 DEFAULT_SIM_AMOUNT = 1
-TEST_MODE = True
-TEST_COUNTER = 29
+TEST_MODE = False
+TEST_COUNTER = 56
 IMG_DIR = ['img/default/', 'img/board size/']
 
 RESULTS = ['High card', 'One pair', 'Two pairs', 'Three of a kind', 'Straight', 'Flush',
