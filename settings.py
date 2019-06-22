@@ -10,14 +10,22 @@ SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
 HEADER = 'Texas Holdem Hands Simulator'
+APP_SIZE = ['765x600', '1160x600']
 PLAYER_MODE = 2
 DATA = {}
 DEFAULT_SIM_AMOUNT = 1
-TEST_MODE = False
-TEST_COUNTER = 56
 IMG_DIR = ['img/default/', 'img/board size/']
+
+# Graphics
+CARD_IMGS = [[],[],[],[]]
+BACK_CARD = None
+BUTTON_IMGS = {}
+
 
 RESULTS = ['High card', 'One pair', 'Two pairs', 'Three of a kind', 'Straight', 'Flush',
            'Full house', 'Four of a kind', 'Straight Flush']
 CARD_COLORS = ['clubs', 'diamonds', 'hearts', 'spades']
 CARD_DECK = []
+
+TEST_MODE = False
+TEST_COUNTER = 56

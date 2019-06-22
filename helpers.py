@@ -20,7 +20,57 @@ if stg.TEST_MODE == True: import tests # For testing purpose
 # * Remove original size images from repo?
 # * Check if not better to set CARD_DECK as dictionary.
 # * SUCCESS_COLOR
+# * Check why sometimes widgets do not load.
+# * Try to load images first then rest of the program.
 
+
+class MenuBar(tk.Menu):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.root = parent.parent
+
+        self.config_widget()
+        self.create_menus()
+
+    def config_widget(self):
+        self.config(bg=stg.BACKGROUND, fg=stg.FOREGROUND, relief='flat',
+                    activebackground=stg.FOREGROUND, activeforeground=stg.BACKGROUND,
+                    font=stg.FONT)
+    
+    def create_menus(self):
+        options = tk.Menu(self.root, tearoff=0)
+        self.add_cascade(label='Options', menu=options)
+        
+        mode = tk.Menu(options, tearoff=0)
+        mode.add_command(label='Two players', background=stg.FOREGROUND, font=stg.FONT,
+                         command=lambda: self.change_mode(2, stg.APP_SIZE[0]), 
+                         foreground=stg.BACKGROUND)
+        mode.add_command(label='Three players', background=stg.FOREGROUND, font=stg.FONT,
+                         command=lambda: self.change_mode(3, stg.APP_SIZE[1]), 
+                         foreground=stg.BACKGROUND)
+        options.add_cascade(label='Mode', menu=mode, background=stg.FOREGROUND,
+                            foreground=stg.BACKGROUND, font=stg.FONT)
+        
+        app_size = tk.Menu(options, tearoff=0)
+        app_size.add_command(label='Big')
+        app_size.add_command(label='Small')
+        options.add_cascade(label='Application size', menu=app_size)
+
+       
+
+    def change_mode(self, mode, size):
+        '''Changes modes between two and three players.'''
+        if mode != stg.PLAYER_MODE:
+            stg.PLAYER_MODE = mode
+            self.root.geometry(size)
+            self.parent.reset_view() 
+    
+    # def change_state(self):
+    #     self.options.configure(state='disabled')
+
+        
 
 class MainWindow(tk.Frame):
     '''Container with widgets of pre simulation view.'''
@@ -29,7 +79,7 @@ class MainWindow(tk.Frame):
         super().__init__(parent)
         self.parent = parent
 
-        deck_populate()
+        self.deck_populate()
         self.config_frame()
         self.create_widgets()
 
@@ -52,7 +102,7 @@ class MainWindow(tk.Frame):
 
         # Simulation button.
         self.sim_button = Simulate(self)
-        self.sim_button.grid(row=2, column=1, pady=(10,0))
+        self.sim_button.grid(row=2, column=stg.PLAYER_MODE - 1, pady=(10,0))
     
     def show_results(self, sim_amount):
         '''Changes main window to post simulation view.'''
@@ -65,7 +115,8 @@ class MainWindow(tk.Frame):
             player.post_sim(sim_amount)
         
         if sim_amount == 1:
-            Board(self, self.players[0].board).grid(row=1, columnspan=2, pady=(0,20))
+            Board(self, self.players[0].board).grid(row=1, columnspan=stg.PLAYER_MODE,
+                  pady=(0,20))
         
         # Button that allows to go back to pre simulation view, after seeing results.
         tk.Button(self, text='New Simulation', relief='flat', font=stg.FONT,
@@ -75,7 +126,13 @@ class MainWindow(tk.Frame):
                   highlightthickness=2, command=self.parent.reset_view).grid(row=2,
                   columnspan=stg.PLAYER_MODE)
     
+    def deck_populate(self):
+        ''' Populates CARD_DECK variable. '''
 
+        stg.CARD_DECK = []
+        for _ in range(4): stg.CARD_DECK.append(list(range(13)))
+
+    
 
 class Player(tk.LabelFrame):
     ''' 
@@ -281,18 +338,14 @@ class Card(tk.Frame):
     def show_card(self, card):
         # Initialize card as backside view.
         if self.rbutton_option.get() == 4 and any(x is None for x in card):
-            img = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + 'backside.png'))
+            img = stg.BACK_CARD
         
         # Show current card.
         else:
             # Set file name to open.
             color = card[0]
             symbol = card[1]
-            if symbol < 10:
-                file_name = stg.IMG_DIR[0] + str(color) + '0' + str(symbol) + '.png'
-            else:
-                file_name = stg.IMG_DIR[0] + str(color) + str(symbol) +  '.png'
-            img = ImageTk.PhotoImage(Image.open(file_name))
+            img = stg.CARD_IMGS[color][symbol]
             
             # Update deck
             stg.CARD_DECK[color][symbol] = None
@@ -302,8 +355,8 @@ class Card(tk.Frame):
         card.grid(row=0, columnspan=4, pady=(0,10))
         
     def create_radiobutton(self, img_name, val):
-        '''Creates radiobutton with image as label. '''
-        img = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + img_name + '.png'))
+        ''' Creates radiobutton with image as label. '''
+        img = stg.BUTTON_IMGS[img_name]
         button = tk.Radiobutton(self, image=img, bg=stg.BACKGROUND,
                                 activebackground=stg.BACKGROUND, 
                                 highlightthickness=0, variable=self.rbutton_option,
@@ -314,7 +367,7 @@ class Card(tk.Frame):
 
     def create_button(self, img_name, val, switcher):
         ''' Creates button as image.'''
-        img = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + img_name + '.png'))
+        img = stg.BUTTON_IMGS[img_name]
         button = tk.Button(self, image=img, bg=stg.BACKGROUND, bd=0,
                            activebackground=stg.BACKGROUND, highlightthickness=0,
                            command=lambda: self.switch_card(self.current_card[0], 
@@ -330,8 +383,10 @@ class Card(tk.Frame):
         
     def switch_card(self, color, symbol, switcher):
         '''Changes to the nearest avalaible card.'''
+        
         if color is not None and symbol is not None:
             self.update_deck(self.current_card)
+            
             # Look in positive direction.
             if switcher:
                 symbol += 1
@@ -339,6 +394,7 @@ class Card(tk.Frame):
                     # If outside card range, reset.
                     if symbol > 12: symbol = 0
                     else: symbol += 1
+            
             # Look in negative drieciton.
             else:
                 symbol -= 1
@@ -487,7 +543,7 @@ class Simulate(tk.Button):
         if error:
             self.show_error = tk.Label(self.parent, text=error, bg=stg.BACKGROUND,
                                        fg=stg.FAIL_COLOR, font=stg.SMALL_FONT)
-            self.show_error.grid(row=1, columnspan=2)
+            self.show_error.grid(row=1, columnspan=stg.PLAYER_MODE)
         else:
             return value
     
@@ -506,7 +562,7 @@ class Simulate(tk.Button):
         if sim_time > 2:
             self.stop_sim = threading.Event()
             prog_bar = ProgressBar(self.parent, self.stop_sim, sim_time)
-            prog_bar.grid(row=1, columnspan=2, pady=(10,20))
+            prog_bar.grid(row=1, columnspan=stg.PLAYER_MODE, pady=(10,20))
             self.parent.update()
             
             prog_status = queue.LifoQueue()
@@ -987,11 +1043,24 @@ class ProgressBar(tk.Frame):
 
 
 # Other functions
-def deck_populate():
-    ''' Populates CARD_DECK variable. '''
-    stg.CARD_DECK = []
-    for _ in range(4):
-        stg.CARD_DECK.append(list(range(13))) 
+def load_graphics():
+    ''' Loads all needed images and store it in settings.py variables. '''
+
+    # Load card images.
+    for color in range(4):
+        for symbol in range(13):
+            if symbol < 10: path = f'{stg.IMG_DIR[0]}{color}0{symbol}.png'
+            else: path = f'{stg.IMG_DIR[0]}{color}{symbol}.png'
+            stg.CARD_IMGS[color].append(ImageTk.PhotoImage(Image.open(path)))
+
+    stg.BACK_CARD = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + 'backside.png'))
+
+    # Load button images.
+    buttons = ['abort', 'clubs', 'diamonds', 'hearts', 'next', 'prev', 'spades']
+    
+    for button in buttons:
+        path = f'{stg.IMG_DIR[0]}{button}.png'
+        stg.BUTTON_IMGS[button] = ImageTk.PhotoImage(Image.open(path))
 
 def card_resize(scale, path, save_path):
     ''' Script helping to resize original card images. '''
