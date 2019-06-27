@@ -10,11 +10,12 @@ SMALL_FONT = ('Arial', 10)
 
 TITLE = 'HandSim'
 HEADER = 'Texas Holdem Hands Simulator'
-APP_SIZE = ['765x600', '1160x600']
-PLAYER_MODE = 2
+APP_SIZES = {'default': ['765x600', '1160x600'], 
+             'small': ['620x530', '945x530']}
+APP_MODE = ['default', 2]
 DATA = {}
 DEFAULT_SIM_AMOUNT = 1
-IMG_DIR = ['img/default/', 'img/board size/']
+IMG_DIR = ['img/default/', 'img/small size/', 'img/board size/']
 
 # Graphics
 CARD_IMGS = [[],[],[],[]]

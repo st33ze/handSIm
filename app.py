@@ -1,4 +1,9 @@
-# App description
+# HandSim is a Texas Holdem game simulator. It gets cards chosen by player, or picks
+# random cards by itself as input. Then it simulates number of games and shows results.
+# Simulation is done in a seperate thread, to make GUI responsive. If simulation
+# takes longer than few seconds progress bar appears to inform user how much time it is
+# going to take. Application also saves and averages simulation times. The more games it
+# simulates, the more accurate time estimations are.  
 
 import tkinter as tk
 import settings as stg  # Application settings and constant variables.
@@ -17,7 +22,7 @@ class HandSim(tk.Frame):
     def configure_gui(self):
         self.master.title(stg.TITLE)
         self.config(bg=stg.BACKGROUND)
-        self.parent.geometry(stg.APP_SIZE[0])
+        self.parent.geometry(stg.APP_SIZES['default'][0])
 
     def create_widgets(self):
         # Header.

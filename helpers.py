@@ -15,13 +15,6 @@ from collections import Counter
 import settings as stg # Application settings and constant variables.
 if stg.TEST_MODE == True: import tests # For testing purpose
 
-# TODO:
-# * Check if parent variable is needed in those classes.
-# * Remove original size images from repo?
-# * Check if not better to set CARD_DECK as dictionary.
-# * SUCCESS_COLOR
-# * Check why sometimes widgets do not load.
-# * Try to load images first then rest of the program.
 
 
 class MenuBar(tk.Menu):
@@ -44,33 +37,39 @@ class MenuBar(tk.Menu):
         self.add_cascade(label='Options', menu=options)
         
         mode = tk.Menu(options, tearoff=0)
-        mode.add_command(label='Two players', background=stg.FOREGROUND, font=stg.FONT,
-                         command=lambda: self.change_mode(2, stg.APP_SIZE[0]), 
-                         foreground=stg.BACKGROUND)
-        mode.add_command(label='Three players', background=stg.FOREGROUND, font=stg.FONT,
-                         command=lambda: self.change_mode(3, stg.APP_SIZE[1]), 
-                         foreground=stg.BACKGROUND)
-        options.add_cascade(label='Mode', menu=mode, background=stg.FOREGROUND,
-                            foreground=stg.BACKGROUND, font=stg.FONT)
+        mode.add_command(label='Two players', 
+                         command=lambda: self.change_mode(players=2))
+        mode.add_command(label='Three players', 
+                         command=lambda: self.change_mode(players=3)) 
+        options.add_cascade(label='Mode', menu=mode)
         
         app_size = tk.Menu(options, tearoff=0)
-        app_size.add_command(label='Big')
-        app_size.add_command(label='Small')
+        app_size.add_command(label='Big',
+                             command=lambda: self.change_mode(size='default'))
+        app_size.add_command(label='Small',
+                             command=lambda: self.change_mode(size='small'))
         options.add_cascade(label='Application size', menu=app_size)
 
        
 
-    def change_mode(self, mode, size):
-        '''Changes modes between two and three players.'''
-        if mode != stg.PLAYER_MODE:
-            stg.PLAYER_MODE = mode
-            self.root.geometry(size)
-            self.parent.reset_view() 
-    
-    # def change_state(self):
-    #     self.options.configure(state='disabled')
+    def change_mode(self, size=None, players=None):
+        ''' Changes modes between two and three players and small or default sizes. '''
 
-        
+        # Change players number.
+        if players and players != stg.APP_MODE[1]:
+            stg.APP_MODE[1] = players
+            size = stg.APP_MODE[0]
+            self.root.geometry(stg.APP_SIZES[size][players - 2])
+            self.parent.reset_view() 
+
+        # Change app size.
+        elif size and size != stg.APP_MODE[0]:
+            stg.APP_MODE[0] = size
+            players = stg.APP_MODE[1]
+            load_graphics()
+            self.root.geometry(stg.APP_SIZES[size][players - 2])
+            self.parent.reset_view()
+
 
 class MainWindow(tk.Frame):
     '''Container with widgets of pre simulation view.'''
@@ -89,7 +88,7 @@ class MainWindow(tk.Frame):
     def create_widgets(self):
         # Create players frames.
         self.players = []
-        for _ in range(stg.PLAYER_MODE):
+        for _ in range(stg.APP_MODE[1]):
             self.players.append(Player(self, 'Player ' + str(_ + 1)))
         for index, player in enumerate(self.players):
             if index < len(self.players) - 1:
@@ -102,20 +101,20 @@ class MainWindow(tk.Frame):
 
         # Simulation button.
         self.sim_button = Simulate(self)
-        self.sim_button.grid(row=2, column=stg.PLAYER_MODE - 1, pady=(10,0))
+        self.sim_button.grid(row=2, column=stg.APP_MODE[1] - 1, pady=(10,0))
     
     def show_results(self, sim_amount):
         '''Changes main window to post simulation view.'''
         
         # Delete not needed widgets and show players results.
-        self.user_input.grid_forget() # DESTROY?????
-        self.sim_button.grid_forget() # DESTROY?????
+        self.user_input.grid_forget()
+        self.sim_button.grid_forget()
 
         for player in self.players:
             player.post_sim(sim_amount)
         
         if sim_amount == 1:
-            Board(self, self.players[0].board).grid(row=1, columnspan=stg.PLAYER_MODE,
+            Board(self, self.players[0].board).grid(row=1, columnspan=stg.APP_MODE[1],
                   pady=(0,20))
         
         # Button that allows to go back to pre simulation view, after seeing results.
@@ -124,7 +123,7 @@ class MainWindow(tk.Frame):
                   highlightbackground=stg.BACKGROUND, highlightcolor=stg.BACKGROUND,
                   activebackground=stg.FOREGROUND, activeforeground=stg.BACKGROUND,
                   highlightthickness=2, command=self.parent.reset_view).grid(row=2,
-                  columnspan=stg.PLAYER_MODE)
+                  columnspan=stg.APP_MODE[1])
     
     def deck_populate(self):
         ''' Populates CARD_DECK variable. '''
@@ -543,7 +542,7 @@ class Simulate(tk.Button):
         if error:
             self.show_error = tk.Label(self.parent, text=error, bg=stg.BACKGROUND,
                                        fg=stg.FAIL_COLOR, font=stg.SMALL_FONT)
-            self.show_error.grid(row=1, columnspan=stg.PLAYER_MODE)
+            self.show_error.grid(row=1, columnspan=stg.APP_MODE[1])
         else:
             return value
     
@@ -562,7 +561,7 @@ class Simulate(tk.Button):
         if sim_time > 2:
             self.stop_sim = threading.Event()
             prog_bar = ProgressBar(self.parent, self.stop_sim, sim_time)
-            prog_bar.grid(row=1, columnspan=stg.PLAYER_MODE, pady=(10,20))
+            prog_bar.grid(row=1, columnspan=stg.APP_MODE[1], pady=(10,20))
             self.parent.update()
             
             prog_status = queue.LifoQueue()
@@ -969,9 +968,9 @@ class Board(tk.Frame):
         symbol = card[1]
 
         if symbol < 10:
-            file_name = stg.IMG_DIR[1] + str(color) + '0' + str(symbol) + '.png'
+            file_name = stg.IMG_DIR[2] + str(color) + '0' + str(symbol) + '.png'
         else:
-            file_name = stg.IMG_DIR[1] + str(color) + str(symbol) +  '.png'
+            file_name = stg.IMG_DIR[2] + str(color) + str(symbol) +  '.png'
         img = ImageTk.PhotoImage(Image.open(file_name))
 
         card = tk.Label(self, image=img, bg=stg.BACKGROUND)
@@ -1007,7 +1006,7 @@ class ProgressBar(tk.Frame):
         self.bar.grid(row=0, column=0)
 
         # Button.
-        img = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + 'abort.png'))
+        img = stg.BUTTON_IMGS['abort']
         self.button = tk.Button(self, image=img, bg=stg.BACKGROUND, bd=0,
                            activebackground=stg.BACKGROUND, highlightthickness=0,
                            command=self.stop_sim)
@@ -1046,25 +1045,35 @@ class ProgressBar(tk.Frame):
 def load_graphics():
     ''' Loads all needed images and store it in settings.py variables. '''
 
+    # Reset grahpics.
+    stg.CARD_IMGS = [[],[],[],[]]
+    stg.BACK_CARD = None
+    stg.BUTTON_IMGS = {}
+    
+    curr_dir = stg.IMG_DIR[0]
+    if stg.APP_MODE[0] == 'small': curr_dir = stg.IMG_DIR[1]
+    
     # Load card images.
     for color in range(4):
         for symbol in range(13):
-            if symbol < 10: path = f'{stg.IMG_DIR[0]}{color}0{symbol}.png'
-            else: path = f'{stg.IMG_DIR[0]}{color}{symbol}.png'
+            if symbol < 10: path = f'{curr_dir}{color}0{symbol}.png'
+            else: path = f'{curr_dir}{color}{symbol}.png'
             stg.CARD_IMGS[color].append(ImageTk.PhotoImage(Image.open(path)))
 
-    stg.BACK_CARD = ImageTk.PhotoImage(Image.open(stg.IMG_DIR[0] + 'backside.png'))
+    # Load backside card image.
+    stg.BACK_CARD = ImageTk.PhotoImage(Image.open(curr_dir + 'backside.png'))
 
     # Load button images.
     buttons = ['abort', 'clubs', 'diamonds', 'hearts', 'next', 'prev', 'spades']
-    
     for button in buttons:
-        path = f'{stg.IMG_DIR[0]}{button}.png'
+        path = f'{curr_dir}{button}.png'
         stg.BUTTON_IMGS[button] = ImageTk.PhotoImage(Image.open(path))
 
 def card_resize(scale, path, save_path):
-    ''' Script helping to resize original card images. '''
-    # Change size for every png image in the path folder.    
+    ''' Script resizing original card images. '''
+    
+    # Change size for every png image in the path folder.
+    # card_resize(0.5, '/img/original size/*', '/img/changed_size/')    
     for image in glob.glob(path + '.png'):
         img = Image.open(image)
         # Set new size of the image.
